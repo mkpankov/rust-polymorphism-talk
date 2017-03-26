@@ -1,0 +1,576 @@
+#+TITLE: 5 способов убить повторяющийся код
+#+AUTHOR: Панков Михаил
+#+DATE: 18 мая 2017
+#+EMAIL: work@michaelpankov.com
+#+LANGUAGE: ru
+#+CATEGORY: task
+#+OPTIONS:   H:2 num:t toc:nil \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
+#+OPTIONS:   TeX:t LaTeX:t skip:nil d:nil todo:t pri:nil tags:not-in-toc
+#+INFOJS_OPT: view:nil toc:nil ltoc:t mouse:underline buttons:0 path:http://orgmode.org/org-info.js
+#+EXPORT_SELECT_TAGS: export
+#+EXPORT_EXCLUDE_TAGS: noexport
+#+LINK_UP:
+#+LINK_HOME:
+#+startup: beamer
+#+LaTeX_CLASS: beamer
+# +LaTeX_CLASS_OPTIONS: [notes]
+#+COLUMNS: %40ITEM %10BEAMER_env(Env) %9BEAMER_envargs(Env Args) %4BEAMER_col(Col) %10BEAMER_extra(Extra)
+#+latex_header: \usepackage[english,russian]{babel}
+#+latex_header: \mode<beamer>{\usetheme{metropolis}}
+
+* Обо мне
+
+** Кто я
+
+- Системный программист
+
+- Работал над компилятором, операционными системами
+
+- Сейчас отвечаю за инфраструктуру обеспечения качества в
+  проекте Kaspersky OS
+
+- Организую русскоязычное сообщество Rust [[http://rustycrate.ru][rustycrate.ru]]
+
+* Задача
+
+** Построить иерархию объектов в ООП-стиле
+
+* Что значит в ООП-стиле?
+
+** Основные понятия ООП
+
+- Абстракция данных
+- Инкапсуляция
+- Cокрытие
+- Наследование
+- Полиморфизм подтипов
+
+***                                                                  :B_note:
+    :PROPERTIES:
+    :BEAMER_env: note
+    :END:
+
+Наследования нет. Альтернатива - композиция.
+
+Полиморфизма подтипов нет. Альтернатива - типажи.
+
+* Зачем нужны основные понятия ООП
+
+** Абстракция данных
+
+- Абстракция данных
+  - Объединение данных одной сущности
+- Инкапсуляция
+- Наследование
+- Полиморфизм подтипов
+
+** Инкапсуляция
+- Абстракция данных
+  - Объединение данных одной сущности
+- Инкапсуляция
+  - Методы работы с данными объединены с самими данными
+- Наследование
+- Полиморфизм подтипов
+
+** Наследование
+- Абстракция данных
+  - Объединение данных одной сущности
+- Инкапсуляция
+  - Методы работы с данными объединены с самими данными
+- Наследование
+  - Методы могут переиспользовать общий код
+- Полиморфизм подтипов
+
+** Полиморфизм подтипов
+- Абстракция данных
+  - Объединение данных одной сущности
+- Инкапсуляция
+  - Методы работы с данными объединены с самими данными
+- Наследование
+  - Методы могут переиспользовать общий код
+- Полиморфизм подтипов
+  - С подклассами можно работать как с надклассами
+
+* Решение (на примере)
+
+** Предметная область
+
+- Фигуры
+- Печать самих фигур
+- Подсчёт их площади
+
+* Наивная реализация
+
+** Наивная реализация (1)
+
+#+BEGIN_SRC rust
+#[derive(Clone, Copy, Debug)]
+struct Point {
+    x: f64,
+    y: f64,
+}
+
+#[derive(Debug)]
+struct Figure {
+    origin: Point,
+}
+#+END_SRC
+
+** Наивная реализация (2)
+
+#+BEGIN_SRC rust
+#[derive(Debug)]
+struct Rectangle {
+    figure: Figure,
+    width: f64,
+    length: f64,
+}
+
+#[derive(Debug)]
+struct Square {
+    rectangle: Rectangle,
+}
+#+END_SRC
+
+
+** Наивная реализация (3)
+#+BEGIN_SRC rust
+  trait Area {
+      fn area(&self) -> f64;
+  }
+  impl Area for Rectangle {
+      fn area(&self) -> f64 {
+          self.width * self.length
+      }
+  }
+  impl Area for Square {
+      fn area(&self) -> f64 {
+          self.rectangle.width
+              ,* self.rectangle.length
+      }
+  }
+#+END_SRC
+
+** Наивная реализация (4)
+
+#+BEGIN_SRC rust
+  fn main() {
+      let origin = Point { x: 0., y: 0. };
+      ...
+      let sq1 = Square {
+          rectangle: Rectangle {
+              figure: Figure {
+                  origin: origin
+              },
+              width: 4.,
+              length: 4.,
+          }
+      };
+      ...
+  }
+#+END_SRC
+
+** Наивная реализация (5)
+
+#+BEGIN_SRC rust
+  fn main() {
+      ...
+      println!("rect1 = {:?}", rect1);
+      println!("area of rect1 = {}", rect1.area());
+      println!("rect2 = {:?}", rect2);
+      println!("area of rect2 = {}", rect2.area());
+      println!("sq1 = {:?}", sq1);
+      println!("area of sq1 = {}", sq1.area());
+  }
+#+END_SRC
+
+** Наивная реализация: оценка
+
+- Абстракция данных
+  - Да
+- Инкапсуляция
+  - Да
+- Сокрытие
+  - Нет
+- Наследование
+  - Нет
+- Полиморфизм
+  - Нет
+
+* Добавляем наследование: вариант 1
+
+** Добавляем наследование (1)
+
+#+BEGIN_SRC rust
+  trait Area {
+      fn area(&self) -> f64;
+  }
+  impl Area for Rectangle {
+      fn area(&self) -> f64 {
+          self.width * self.length
+      }
+  }
+  impl Area for Square {
+      fn area(&self) -> f64 {
+          self.rectangle.width
+              ,* self.rectangle.length
+      }
+  }
+#+END_SRC
+
+** Добавляем наследование (2)
+
+#+BEGIN_SRC rust
+  trait Area {
+      fn area(&self) -> f64;
+  }
+  impl Area for Rectangle {
+      fn area(&self) -> f64 {
+          self.width * self.length
+      }
+  }
+  impl Area for Square {
+      fn area(&self) -> f64 {
+          self.rectangle.area()
+      }
+  }
+
+#+END_SRC
+
+** Наивная реализация: оценка
+
+- Абстракция данных
+  - Да
+- Инкапсуляция
+  - Да
+- Наследование
+  - Да
+- Полиморфизм
+  - Нет
+
+* Добавляем наследование: вариант 2
+
+** Добавляем наследование (1)
+
+#+BEGIN_SRC rust
+trait Rect {
+    fn width(&self) -> f64;
+    fn length(&self) -> f64;
+}
+
+trait AreaRect: Rect {
+    fn area(&self) -> f64 {
+        self.width() * self.length()
+    }
+}
+#+END_SRC
+
+** Добавляем наследование (2)
+
+#+BEGIN_SRC rust
+  impl Rect for Rectangle {
+      fn width(&self) -> f64 { self.width }
+      fn length(&self) -> f64 { self.length }
+  }
+
+  impl Rect for Square {
+      fn width(&self) -> f64 {
+          self.rectangle.width()
+      }
+      fn length(&self) -> f64 {
+          self.rectangle.length()
+      }
+  }
+#+END_SRC
+
+** Добавляем наследование (3)
+
+#+BEGIN_SRC rust
+impl AreaRect for Rectangle { }
+
+impl AreaRect for Square { }
+#+END_SRC
+
+* Добавляем сокрытие
+
+** Добавляем сокрытие
+
+#+BEGIN_SRC rust
+use figure::Figure;
+
+mod figure {
+    use Point;
+
+    #[derive(Debug)]
+    struct Figure {
+        origin: Point,
+    }
+}
+#+END_SRC
+
+** Ошибка
+
+#+BEGIN_SRC text
+error: struct `Figure` is private
+ --> src/main.rs:1:5
+  |
+1 | use figure::Figure;
+  |     ^^^^^^^^^^^^^^
+#+END_SRC
+
+** Уносим всё в модули (1)
+
+#+BEGIN_SRC rust
+  use figure::rectangle::{Rectangle, AreaRect};
+  use figure::rectangle::square::Square;
+  mod figure {
+      ...
+      struct Figure { ... }
+      pub mod rectangle {
+          ...
+          pub struct Rectangle { ... }
+          pub trait Rect { ... }
+          pub trait AreaRect: Rect { ... }
+          impl Rectangle {
+              pub fn new(...) -> Self { ... }
+          }
+#+END_SRC
+
+** Уносим всё в модули (2)
+
+#+BEGIN_SRC rust
+          pub mod square {
+              ...
+              pub struct Square { ... }
+              impl Square {
+                  pub fn new(...) -> Self { ... }
+              }
+          }
+      }
+  }
+#+END_SRC
+
+** Уносим всё в модули (3)
+
+#+BEGIN_SRC rust
+  fn main {
+      let figure = Figure { origin: origin };
+      // не можем этого сделать
+  }
+#+END_SRC
+
+** Модульная реализация: оценка
+
+- Абстракция данных
+  - Да
+- Инкапсуляция
+  - Да
+- Сокрытие
+  - Да
+- Наследование
+  - Да
+- Полиморфизм
+  - Нет
+
+* Добавляем инкапсуляцию
+
+** Добавляем инкапсуляцию (1)
+
+#+BEGIN_SRC rust
+    #[derive(Clone, Copy, Debug)]
+    pub struct Point {
+        x: f64,
+        y: f64,
+    }
+
+    impl Point {
+        pub fn new(x: f64, y: f64) -> Self {
+            Point { x: x, y: y }
+        }
+    }
+#+END_SRC
+
+** Добавляем инкапсуляцию (2)
+
+#+BEGIN_SRC rust
+    let origin = Point::new(0., 0.);
+#+END_SRC
+
+* Как обобщённо напечатать
+
+** Как обобщённо напечатать
+
+#+BEGIN_SRC rust
+  fn print_areas(figures: &[&AreaRect]) {
+      for f in figures {
+          println!("{}", f.area());
+      }
+  }
+  fn main() {
+      ...
+      let rect1 = Rectangle::new(origin, 5., 7.);
+      let rect2 = Rectangle::new(origin, 3., 9.);
+      let sq1 = Square::new(origin, 4.);
+      print_areas(&[&rect1, &rect2, &sq1]);
+  }
+
+#+END_SRC
+
+** Результат
+
+#+BEGIN_SRC text
+35
+27
+16
+#+END_SRC
+
+** Что мы на самом деле хотели
+
+#+BEGIN_SRC rust
+  fn print_areas(figures: &[&(AreaRect + Debug)]) {
+      for f in figures {
+          println!("{:?}", f, f.area());
+      }
+  }
+#+END_SRC
+
+** ... но это не работает
+
+#+BEGIN_SRC text
+  error[E0225]: only Send/Sync traits can be used
+  as additional traits in a trait object
+     --> src/main.rs:110:40
+      |
+  110 | fn print_areas(figures: &[&(AreaRect + Debug)]) {
+      |                                        ^^^^^
+      |                non-Send/Sync additional trait
+
+#+END_SRC
+
+** Есть костыль
+
+#+BEGIN_SRC rust
+  fn print_areas(figures: &[&Debug],
+                 figures_for_area: &[&AreaRect]) {
+      for (f1, f2) in figures
+          .iter().zip(figures_for_area.iter()) {
+              println!("Площадь {:?} равна {}",
+                       f1, f2.area());
+      }
+  }
+
+  fn main() {
+      ...
+      print_areas(&[&rect1, &rect2, &sq1],
+                  &[&rect1, &rect2, &sq1]);
+  }
+#+END_SRC
+
+** Работает!
+
+#+BEGIN_SRC text
+  Площадь Rectangle { ... width: 5, length: 7 }
+    равна 35
+  Площадь Rectangle { ... width: 3, length: 9 }
+    равна 27
+  Площадь Square { ... width: 4, length: 4 } }
+    равна 16
+#+END_SRC
+
+* Обобщаем все свойства
+
+** Обобщаем все свойства (1)
+
+#+BEGIN_SRC rust
+  pub trait MyRect: Rect + AreaRect + Debug {}
+
+  impl MyRect for Rectangle { }
+
+  impl MyRect for Square { }
+#+END_SRC
+
+** Обобщаем все свойства (2)
+
+#+BEGIN_SRC rust
+  fn print_areas(figures: &[&MyRect]) {
+      for f in figures {
+          println!("Площадь {:?} равна {}",
+                   f, f.area());
+      }
+  }
+#+END_SRC
+
+** Работает!
+
+#+BEGIN_SRC text
+  Площадь Rectangle { ... width: 5, length: 7 }
+    равна 35
+  Площадь Rectangle { ... width: 3, length: 9 }
+    равна 27
+  Площадь Square { ... width: 4, length: 4 } }
+    равна 16
+#+END_SRC
+
+* Проблема с обобщением площади
+
+** Добавим эллиптические фигуры
+
+#+BEGIN_SRC rust
+  pub trait Elliptic {
+      fn a(&self) -> f64;
+      fn b(&self) -> f64;
+  }
+  pub trait AreaElliptic: Elliptic {
+      fn area(&self) -> f64 {
+          PI * self.a() * self.b()
+      }
+  }
+  pub struct Ellipse { ... }
+  impl AreaElliptic for Ellipse { }
+  pub struct Circle { ... }
+  impl AreaElliptic for Circle { }
+#+END_SRC
+
+** Печать расщепляется
+
+#+BEGIN_SRC rust
+  fn print_areas_rect(figures: &[&MyRect]) {
+      for f in figures {
+          println!("Площадь {:?} равна {}",
+                   f, f.area());
+      }
+  }
+
+  fn print_areas_elliptic(figures: &[&MyElliptic]) {
+      for f in figures {
+          println!("Площадь {:?} равна {}",
+                   f, f.area());
+      }
+  }
+#+END_SRC
+
+** Обобщаем площадь обратно
+
+#+BEGIN_SRC rust
+  pub trait Area {
+      fn area(&self) -> f64;
+  }
+  pub trait MyFigure: Area + Debug {}
+  impl Area for Rectangle {
+      fn area(&self) -> f64 {
+          self.width * self.length
+      }
+  }
+  impl MyFigure for Rectangle { }
+  impl Area for Square {
+      fn area(&self) -> f64 { self.rectangle.area() }
+  }
+  impl MyFigure for Square { }
+
+#+END_SRC
+
+* Поддержите на Patreon
+
+* Спасибо!
+
+* Backup
