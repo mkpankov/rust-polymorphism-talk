@@ -16,7 +16,7 @@
 # +LaTeX_CLASS_OPTIONS: [notes]
 #+COLUMNS: %40ITEM %10BEAMER_env(Env) %9BEAMER_envargs(Env Args) %4BEAMER_col(Col) %10BEAMER_extra(Extra)
 #+latex_header: \usepackage[english,russian]{babel}
-#+latex_header: \mode<beamer>{\usetheme{metropolis}}
+#+latex_header: \mode<beamer>{\usetheme[background=dark]{metropolis}}
 
 * Обо мне
 
@@ -33,7 +33,9 @@
 
 * Задача
 
-** Построить иерархию объектов в ООП-стиле
+** Задача
+
+- Построить иерархию объектов в ООП-стиле
 
 * Что значит в ООП-стиле?
 
@@ -99,9 +101,137 @@
 - Печать самих фигур
 - Подсчёт их площади
 
-* Наивная реализация
+* Самая наивная реализация
 
-** Наивная реализация (1)
+** Объединение через перечисление (1)
+
+#+BEGIN_SRC rust
+struct Rectangle {
+    width: f64,
+    length: f64,
+}
+impl Rectangle {
+    fn area(&self) -> f64 { ... }
+}
+struct Square {
+    side: f64,
+}
+impl Square {
+    fn area(&self) -> f64 { ... }
+}
+#+END_SRC
+
+** Объединение через перечисление (2)
+
+#+BEGIN_SRC rust
+fn main() {
+    let rect1 = Rectangle { width: 3., length: 5. };
+    let rect2 = Rectangle { width: 4., length: 6. };
+    let sq1 = Square { side: 8. };
+    let sq2 = Square { side: 4. };
+    let rects = [&rect1, &rect2];
+    let squares = [&sq1, &sq2];
+    for r in rects.iter() {
+        println!("Площадь равна {}", r.area());
+    }
+    for s in squares.iter() {
+        println!("Площадь равна {}", s.area());
+    }
+}
+#+END_SRC
+
+** Замечание
+
+- Хотим печатать фигуру для которой площадь
+
+** Исправляем
+
+#+BEGIN_SRC rust
+  #[derive(Debug)]
+  struct Rectangle { ... }
+  #[derive(Debug)]
+  struct Square { ... }
+
+  for r in rects.iter() {
+      println!("Площадь {:?} равна {}", r, r.area());
+  }
+  for s in squares.iter() {
+      println!("Площадь {:?} равна {}", s, s.area());
+  }
+#+END_SRC
+
+* Обобщим немного
+
+** Обобщим немного (1)
+
+#+BEGIN_SRC rust
+#[derive(Debug)]
+enum Figure {
+    Rect(Rectangle),
+    Sq(Square),
+}
+
+impl Figure {
+    fn area(&self) -> f64 {
+        match self {
+            &Figure::Rect(ref r) => r.area(),
+            &Figure::Sq(ref s) => s.area(),
+        }
+    }
+}
+
+#+END_SRC
+
+** Обобщим немного (2)
+
+#+BEGIN_SRC rust
+  let rect1 = Figure::Rect(
+      Rectangle { width: 3., length: 5. });
+  let rect2 = ...;
+  let sq1 = Figure::Sq(
+      Square { side: 8. });
+  let sq2 = ...;
+
+  let figures = [&rect1, &rect2, &sq1, &sq2];
+
+  for f in figures.iter() {
+      println!("Площадь {:?} равна {}", f, f.area());
+  }
+
+#+END_SRC
+
+** Объединение через перечисление: оценка
+
+- Хорошо
+  - Очень просто
+- Плохо
+  - Диспетчер вызовов пишется вручную
+  - Добавление нового типа - новый код
+  - Размер объектов максимален
+  - Нет наследования кода
+
+* Как унаследовать код?
+
+** Унаследуем код очень просто
+
+#+BEGIN_SRC rust
+  struct Square {
+      rect: Rectangle
+  }
+  impl Square {
+      fn area(&self) -> f64 {
+          self.rect.area()
+      }
+  }
+  let sq1 = Figure::Sq(
+      Square {
+          rect: Rectangle {
+              width: 8., length: 8. } } );
+#+END_SRC
+
+* Типажи
+
+** Типажи (1)
 
 #+BEGIN_SRC rust
 #[derive(Clone, Copy, Debug)]
@@ -116,7 +246,7 @@ struct Figure {
 }
 #+END_SRC
 
-** Наивная реализация (2)
+** Типажи (2)
 
 #+BEGIN_SRC rust
 #[derive(Debug)]
@@ -133,7 +263,7 @@ struct Square {
 #+END_SRC
 
 
-** Наивная реализация (3)
+** Типажи (3)
 #+BEGIN_SRC rust
   trait Area {
       fn area(&self) -> f64;
@@ -151,7 +281,7 @@ struct Square {
   }
 #+END_SRC
 
-** Наивная реализация (4)
+** Типажи (4)
 
 #+BEGIN_SRC rust
   fn main() {
@@ -170,87 +300,31 @@ struct Square {
   }
 #+END_SRC
 
-** Наивная реализация (5)
+** Типажи (5)
 
 #+BEGIN_SRC rust
-  fn main() {
-      ...
-      println!("rect1 = {:?}", rect1);
-      println!("area of rect1 = {}", rect1.area());
-      println!("rect2 = {:?}", rect2);
-      println!("area of rect2 = {}", rect2.area());
-      println!("sq1 = {:?}", sq1);
-      println!("area of sq1 = {}", sq1.area());
+  let rects = [&rect1, &rect2];
+  for r in rects {
+      println!("Площадь равна {}", r.area());
   }
-#+END_SRC
-
-** Наивная реализация: оценка
-
-- Абстракция данных
-  - Да
-- Инкапсуляция
-  - Да
-- Сокрытие
-  - Нет
-- Наследование
-  - Нет
-- Полиморфизм
-  - Нет
-
-* Добавляем наследование: вариант 1
-
-** Добавляем наследование (1)
-
-#+BEGIN_SRC rust
-  trait Area {
-      fn area(&self) -> f64;
-  }
-  impl Area for Rectangle {
-      fn area(&self) -> f64 {
-          self.width * self.length
-      }
-  }
-  impl Area for Square {
-      fn area(&self) -> f64 {
-          self.rectangle.width
-              ,* self.rectangle.length
-      }
-  }
-#+END_SRC
-
-** Добавляем наследование (2)
-
-#+BEGIN_SRC rust
-  trait Area {
-      fn area(&self) -> f64;
-  }
-  impl Area for Rectangle {
-      fn area(&self) -> f64 {
-          self.width * self.length
-      }
-  }
-  impl Area for Square {
-      fn area(&self) -> f64 {
-          self.rectangle.area()
-      }
+  let sq1 = [&sq1, &sq2];
+  for s in squares {
+      println!("Площадь равна {}", r.area());
   }
 
 #+END_SRC
 
-** Наивная реализация: оценка
+** Типажи: оценка
 
-- Абстракция данных
-  - Да
-- Инкапсуляция
-  - Да
-- Наследование
-  - Да
-- Полиморфизм
-  - Нет
+- Хорошо
+  - Достаточно просто
+- Плохо
+  - Не можем обобщённо обработать все объекты
+  - Нет наследования
 
-* Добавляем наследование: вариант 2
+* Добавляем наследование через типажи
 
-** Добавляем наследование (1)
+** Добавляем наследование через типажи (1)
 
 #+BEGIN_SRC rust
 trait Rect {
@@ -265,25 +339,25 @@ trait AreaRect: Rect {
 }
 #+END_SRC
 
-** Добавляем наследование (2)
+** Добавляем наследование через типажи (2)
 
 #+BEGIN_SRC rust
   impl Rect for Rectangle {
       fn width(&self) -> f64 { self.width }
       fn length(&self) -> f64 { self.length }
   }
-
+  #[derive(Debug)]
+  struct Square {
+      figure: Figure,
+      side: f64,
+  }
   impl Rect for Square {
-      fn width(&self) -> f64 {
-          self.rectangle.width()
-      }
-      fn length(&self) -> f64 {
-          self.rectangle.length()
-      }
+      fn width(&self) -> f64 { self.side }
+      fn length(&self) -> f64 { self.side }
   }
 #+END_SRC
 
-** Добавляем наследование (3)
+** Добавляем наследование через типажи (3)
 
 #+BEGIN_SRC rust
 impl AreaRect for Rectangle { }
@@ -291,86 +365,9 @@ impl AreaRect for Rectangle { }
 impl AreaRect for Square { }
 #+END_SRC
 
-* Добавляем сокрытие
+** Наследование через типажи
 
-** Добавляем сокрытие
-
-#+BEGIN_SRC rust
-use figure::Figure;
-
-mod figure {
-    use Point;
-
-    #[derive(Debug)]
-    struct Figure {
-        origin: Point,
-    }
-}
-#+END_SRC
-
-** Ошибка
-
-#+BEGIN_SRC text
-error: struct `Figure` is private
- --> src/main.rs:1:5
-  |
-1 | use figure::Figure;
-  |     ^^^^^^^^^^^^^^
-#+END_SRC
-
-** Уносим всё в модули (1)
-
-#+BEGIN_SRC rust
-  use figure::rectangle::{Rectangle, AreaRect};
-  use figure::rectangle::square::Square;
-  mod figure {
-      ...
-      struct Figure { ... }
-      pub mod rectangle {
-          ...
-          pub struct Rectangle { ... }
-          pub trait Rect { ... }
-          pub trait AreaRect: Rect { ... }
-          impl Rectangle {
-              pub fn new(...) -> Self { ... }
-          }
-#+END_SRC
-
-** Уносим всё в модули (2)
-
-#+BEGIN_SRC rust
-          pub mod square {
-              ...
-              pub struct Square { ... }
-              impl Square {
-                  pub fn new(...) -> Self { ... }
-              }
-          }
-      }
-  }
-#+END_SRC
-
-** Уносим всё в модули (3)
-
-#+BEGIN_SRC rust
-  fn main {
-      let figure = Figure { origin: origin };
-      // не можем этого сделать
-  }
-#+END_SRC
-
-** Модульная реализация: оценка
-
-- Абстракция данных
-  - Да
-- Инкапсуляция
-  - Да
-- Сокрытие
-  - Да
-- Наследование
-  - Да
-- Полиморфизм
-  - Нет
+- Общая реализация для всех типов
 
 * Добавляем инкапсуляцию
 
@@ -378,13 +375,13 @@ error: struct `Figure` is private
 
 #+BEGIN_SRC rust
     #[derive(Clone, Copy, Debug)]
-    pub struct Point {
+    struct Point {
         x: f64,
         y: f64,
     }
 
     impl Point {
-        pub fn new(x: f64, y: f64) -> Self {
+        fn new(x: f64, y: f64) -> Self {
             Point { x: x, y: y }
         }
     }
@@ -395,6 +392,53 @@ error: struct `Figure` is private
 #+BEGIN_SRC rust
     let origin = Point::new(0., 0.);
 #+END_SRC
+
+* Добавляем сокрытие
+
+** Добавляем сокрытие
+
+#+BEGIN_SRC rust
+mod figure {
+    use Point;
+
+    #[derive(Debug)]
+    struct Figure {
+        origin: Point,
+    }
+}
+#+END_SRC
+
+** Уносим всё в модули (1)
+
+#+BEGIN_SRC rust
+  mod figure {
+      struct Figure { ... }
+      pub mod rectangle {
+          pub struct Rectangle { ... }
+          pub trait Rect { ... }
+          pub trait AreaRect: Rect { ... }
+          impl Rectangle {
+              pub fn new(...) -> Self { ... }
+          }
+          pub mod square {
+              pub struct Square { ... }
+              impl Square {
+                  pub fn new(...) -> Self { ... }
+              }
+#+END_SRC
+
+** Уносим всё в модули (3)
+
+#+BEGIN_SRC rust
+  fn main {
+      // не можем этого сделать
+      let figure = Figure { origin: origin };
+  }
+#+END_SRC
+
+** Модульная реализация: оценка
+
+- Запрещаем прямой доступ к полям
 
 * Как обобщённо напечатать
 
