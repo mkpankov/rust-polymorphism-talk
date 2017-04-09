@@ -1,4 +1,4 @@
-#+TITLE: 5 способов убить повторяющийся код
+#+TITLE: ООП на Rust
 #+AUTHOR: Панков Михаил
 #+DATE: 18 мая 2017
 #+EMAIL: work@michaelpankov.com
@@ -23,13 +23,9 @@
 ** Кто я
 
 - Системный программист
-
-- Работал над компилятором, операционными системами
-
-- Сейчас отвечаю за инфраструктуру обеспечения качества в
-  проекте Kaspersky OS
-
-- Организую русскоязычное сообщество Rust [[http://rustycrate.ru][rustycrate.ru]]
+  - Компилятор, операционные системы
+  - Инфраструктура обеспечения качества Kaspersky OS
+  - Русскоязычное сообщество Rust [[http://rustycrate.ru][rustycrate.ru]]
 
 * Задача
 
@@ -68,7 +64,6 @@
 
 ** Инкапсуляция
 - Абстракция данных
-  - Объединение данных одной сущности
 - Инкапсуляция
   - Методы работы с данными объединены с самими данными
 - Наследование
@@ -76,24 +71,19 @@
 
 ** Наследование
 - Абстракция данных
-  - Объединение данных одной сущности
 - Инкапсуляция
-  - Методы работы с данными объединены с самими данными
 - Наследование
   - Методы могут переиспользовать общий код
 - Полиморфизм подтипов
 
 ** Полиморфизм подтипов
 - Абстракция данных
-  - Объединение данных одной сущности
 - Инкапсуляция
-  - Методы работы с данными объединены с самими данными
 - Наследование
-  - Методы могут переиспользовать общий код
 - Полиморфизм подтипов
   - С подклассами можно работать как с надклассами
 
-* Решение (на примере)
+* Решение
 
 ** Предметная область
 
@@ -103,25 +93,25 @@
 
 * Самая наивная реализация
 
-** Объединение через перечисление (1)
+** Реализация без всего: структуры
 
 #+BEGIN_SRC rust
-struct Rectangle {
-    width: f64,
-    length: f64,
-}
-impl Rectangle {
-    fn area(&self) -> f64 { ... }
-}
-struct Square {
-    side: f64,
-}
-impl Square {
-    fn area(&self) -> f64 { ... }
-}
+  struct Rectangle {
+      width: f64, length: f64,
+  }
+  impl Rectangle {
+      fn area(&self) -> f64 { self.width
+                            ,* self.length }
+  }
+  struct Square {
+      side: f64,
+  }
+  impl Square {
+      fn area(&self) -> f64 { self.side * self.side }
+  }
 #+END_SRC
 
-** Объединение через перечисление (2)
+** Реализация без всего: использование
 
 #+BEGIN_SRC rust
 fn main() {
@@ -140,29 +130,58 @@ fn main() {
 }
 #+END_SRC
 
+** Реализация без всего: результат
+
+#+BEGIN_SRC text
+Площадь равна 15
+Площадь равна 24
+Площадь равна 64
+Площадь равна 16
+#+END_SRC
+
 ** Замечание
 
-- Хотим печатать фигуру для которой площадь
+- Хотим печатать фигуру
 
-** Исправляем
+** Печатаем саму фигуру
 
 #+BEGIN_SRC rust
-  #[derive(Debug)]
-  struct Rectangle { ... }
-  #[derive(Debug)]
-  struct Square { ... }
-
+  impl Display for Rectangle {
+      fn fmt(&self, f: &mut Formatter) -> Result {
+          write!(f, "прямоугольник({}, {})",
+                 self.width, self.length)
+      }
+  }
+  impl Display for Square { ... }
   for r in rects.iter() {
-      println!("Площадь {:?} равна {}", r, r.area());
+      println!("Площадь {} равна {}", r, r.area());
   }
   for s in squares.iter() {
-      println!("Площадь {:?} равна {}", s, s.area());
+      println!("Площадь {} равна {}", s, s.area());
   }
 #+END_SRC
 
+** Печатаем фигуру: результат
+
+#+BEGIN_SRC text
+Площадь прямоугольник(3, 5) равна 15
+Площадь прямоугольник(4, 6) равна 24
+Площадь квадрат(8) равна 64
+Площадь квадрат(4) равна 16
+#+END_SRC
+
+** Реализация без всего: оценка
+
+- Хорошо
+  - Можно написать не глядя
+- Плохо
+  - Новый тип --- новый код
+  - Нет наследования кода
+  - Нет обобщённой обработки
+
 * Обобщим немного
 
-** Обобщим немного (1)
+** Вводим перечисление
 
 #+BEGIN_SRC rust
 #[derive(Debug)]
@@ -182,7 +201,7 @@ impl Figure {
 
 #+END_SRC
 
-** Обобщим немного (2)
+** Используем перечисление
 
 #+BEGIN_SRC rust
   let rect1 = Figure::Rect(
@@ -204,11 +223,12 @@ impl Figure {
 
 - Хорошо
   - Очень просто
+  - Обобщённая обработка
 - Плохо
-  - Диспетчер вызовов пишется вручную
-  - Добавление нового типа - новый код
+  - /Новый тип --- новый код/
+  - /Нет наследования кода/
   - Размер объектов максимален
-  - Нет наследования кода
+  - Диспетчер вызовов --- вручную
 
 * Как унаследовать код?
 
@@ -229,9 +249,22 @@ impl Figure {
               width: 8., length: 8. } } );
 #+END_SRC
 
+** Объединение с <<наследованием>>: оценка
+
+- Хорошо
+  - Очень просто
+  - Обобщённая обработка
+  - Переиспользование кода
+- Плохо
+  - /Новый тип --- новый код/
+  - /Размер объектов максимален/
+  - /Диспетчер вызовов --- вручную/
+  - Проброс вызова наследуемого метода вручную
+  - Наследуемый метод работает в контексте родителя
+
 * Типажи
 
-** Типажи (1)
+** Типажи: структуры точки и фигуры
 
 #+BEGIN_SRC rust
 #[derive(Clone, Copy, Debug)]
@@ -246,7 +279,7 @@ struct Figure {
 }
 #+END_SRC
 
-** Типажи (2)
+** Типажи: структуры прямоугольника и квадрата
 
 #+BEGIN_SRC rust
 #[derive(Debug)]
@@ -262,8 +295,8 @@ struct Square {
 }
 #+END_SRC
 
+** Типажи: реализация типажей
 
-** Типажи (3)
 #+BEGIN_SRC rust
   trait Area {
       fn area(&self) -> f64;
@@ -281,7 +314,7 @@ struct Square {
   }
 #+END_SRC
 
-** Типажи (4)
+** Типажи: создание структур
 
 #+BEGIN_SRC rust
   fn main() {
@@ -300,7 +333,7 @@ struct Square {
   }
 #+END_SRC
 
-** Типажи (5)
+** Типажи: использование
 
 #+BEGIN_SRC rust
   let rects = [&rect1, &rect2];
@@ -324,7 +357,7 @@ struct Square {
 
 * Добавляем наследование через типажи
 
-** Добавляем наследование через типажи (1)
+** Вводим площадь прямоугольников
 
 #+BEGIN_SRC rust
 trait Rect {
@@ -339,7 +372,7 @@ trait AreaRect: Rect {
 }
 #+END_SRC
 
-** Добавляем наследование через типажи (2)
+** Делаем квадрат прямоугольником
 
 #+BEGIN_SRC rust
   impl Rect for Rectangle {
@@ -357,7 +390,7 @@ trait AreaRect: Rect {
   }
 #+END_SRC
 
-** Добавляем наследование через типажи (3)
+** Добавляем прямоугольникам площадь
 
 #+BEGIN_SRC rust
 impl AreaRect for Rectangle { }
@@ -365,13 +398,14 @@ impl AreaRect for Rectangle { }
 impl AreaRect for Square { }
 #+END_SRC
 
-** Наследование через типажи
+** <<Наследование>> через типажи
 
 - Общая реализация для всех типов
+- Не классическое наследование
 
 * Добавляем инкапсуляцию
 
-** Добавляем инкапсуляцию (1)
+** Метод создания точки
 
 #+BEGIN_SRC rust
     #[derive(Clone, Copy, Debug)]
@@ -387,51 +421,50 @@ impl AreaRect for Square { }
     }
 #+END_SRC
 
-** Добавляем инкапсуляцию (2)
+** Создание точки
 
 #+BEGIN_SRC rust
-    let origin = Point::new(0., 0.);
+  let origin = Point::new(0., 0.);
+#+END_SRC
+
+** Не мешает прямой работе
+
+- Можем сконструировать точку
+#+BEGIN_SRC rust
+  let origin = Point { x: 0., y: 0. };
+#+END_SRC
+- Можем сконструировать фигуру, которая вообще виртуальна
+#+BEGIN_SRC rust
+  let figure = Figure { origin: origin };
 #+END_SRC
 
 * Добавляем сокрытие
 
-** Добавляем сокрытие
-
-#+BEGIN_SRC rust
-mod figure {
-    use Point;
-
-    #[derive(Debug)]
-    struct Figure {
-        origin: Point,
-    }
-}
-#+END_SRC
-
-** Уносим всё в модули (1)
+** Уносим всё в модули
 
 #+BEGIN_SRC rust
   mod figure {
+      struct Point { ... }
       struct Figure { ... }
       pub mod rectangle {
           pub struct Rectangle { ... }
-          pub trait Rect { ... }
-          pub trait AreaRect: Rect { ... }
           impl Rectangle {
               pub fn new(...) -> Self { ... }
           }
-          pub mod square {
-              pub struct Square { ... }
-              impl Square {
-                  pub fn new(...) -> Self { ... }
-              }
+          pub mod square { ... }
+      }
+  }
 #+END_SRC
 
-** Уносим всё в модули (3)
+** Больше не можем работать напрямую
 
 #+BEGIN_SRC rust
   fn main {
-      // не можем этого сделать
+      // error[E0422]: cannot find struct, variant
+      // or union type `Point` in this scope
+      let origin = Point { x: 0., y: 0. };
+      // error[E0422]: cannot find struct, variant
+      // or union type `Figure` in this scope
       let figure = Figure { origin: origin };
   }
 #+END_SRC
@@ -496,8 +529,8 @@ mod figure {
 #+BEGIN_SRC rust
   fn print_areas(figures: &[&Debug],
                  figures_for_area: &[&AreaRect]) {
-      for (f1, f2) in figures
-          .iter().zip(figures_for_area.iter()) {
+      for (f1, f2) in figures.iter()
+                 .zip(figures_for_area.iter()) {
               println!("Площадь {:?} равна {}",
                        f1, f2.area());
       }
@@ -523,7 +556,7 @@ mod figure {
 
 * Обобщаем все свойства
 
-** Обобщаем все свойства (1)
+** Обобщаем все свойства: объединяющий типаж
 
 #+BEGIN_SRC rust
   pub trait MyRect: Rect + AreaRect + Debug {}
@@ -533,7 +566,7 @@ mod figure {
   impl MyRect for Square { }
 #+END_SRC
 
-** Обобщаем все свойства (2)
+** Обобщаем все свойства: использование типажа-объекта
 
 #+BEGIN_SRC rust
   fn print_areas(figures: &[&MyRect]) {
@@ -613,7 +646,19 @@ mod figure {
 
 #+END_SRC
 
+** Как выбирать?
+
+- Зависит от предметной области
+- Наследование через типаж
+  - Если все структуры в одной ветви иерархии
+- Прямая реализация типажа
+  - Если структуры образуют разветвлённую иерархию
+
 * Поддержите на Patreon
+
+** Поддержите на Patreon
+
+- https://www.patreon.com/mkpankov
 
 * Спасибо!
 
